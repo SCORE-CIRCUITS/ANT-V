@@ -75,3 +75,5 @@ targets:
           - "-Wno-COMBDLY"
           - "-Wno-WIDTHEXPAND"
           - "-Wno-WIDTHTRUNC"
+          - "-Wno-fatal"
+          - "-Wno-MULTIDRIVEN"

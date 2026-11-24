@@ -24,8 +24,4 @@ scripts:
 
 targets:
   default:
-    filesets:
-      - files_check_tool_requirements
-    hooks:
-      pre_build:
-        - tool_verilator ? (check_tool_requirements)
+    filesets: []

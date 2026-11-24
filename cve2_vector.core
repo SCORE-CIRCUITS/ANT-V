@@ -37,11 +37,11 @@ targets:
           # Verilator without increasing the unroll count (see Verilator#1266)
           - "--unroll-count 72"
 
-format:
-  <<: *default_target
-  default_tool: veribleformat
-  tools:
-    veribleformat:
-      verible_format_args:
-        - "--inplace"
+  format:
+    <<: *default_target
+    default_tool: veribleformat
+    tools:
+      veribleformat:
+        verible_format_args:
+          - "--inplace"
 

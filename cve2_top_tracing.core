@@ -8,7 +8,7 @@ description: "CVE2, a small RV32 CPU core with tracing enabled"
 filesets:
   files_rtl:
     depend:
-      - openhwgroup:cve2:cve2_top
+      - polito:cve2:cve2_top:0.1
       - openhwgroup:cve2:cve2_tracer
       - "!SYNTHESIS ? (openhwgroup:cve2:cve2_clock_gate)"
     files:

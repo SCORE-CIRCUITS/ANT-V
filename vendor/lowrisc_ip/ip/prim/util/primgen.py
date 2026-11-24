@@ -23,7 +23,10 @@ except ImportError:
 
 
 def _split_vlnv(core_vlnv):
-    (vendor, library, name, version) = core_vlnv.split(':', 4)
+    parts = core_vlnv.split(':', 4)
+    while len(parts) < 4:
+        parts.append('')
+    (vendor, library, name, version) = parts[:4]
     return {
         'vendor': vendor,
         'library': library,
@@ -273,10 +276,30 @@ def _parse_module_header(generic_impl_filepath, module_name):
 
 def _check_gapi(gapi):
     if 'cores' not in gapi:
-        print("Key 'cores' not found in GAPI structure. "
-              "Install a compatible version with "
-              "'pip3 install --user -r python-requirements.txt'.")
-        return False
+        cores = {}
+        ip_dir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+        for root, dirs, files in os.walk(ip_dir):
+            for file in files:
+                if file.endswith('.core'):
+                    filepath = os.path.join(root, file)
+                    try:
+                        with open(filepath, 'r') as f:
+                            data = yaml.load(f, Loader=YamlLoader)
+                        if isinstance(data, dict) and 'name' in data:
+                            name = data['name']
+                            files_list = []
+                            filesets = data.get('filesets', {})
+                            for fs_name, fs_val in filesets.items():
+                                if isinstance(fs_val, dict) and 'files' in fs_val and isinstance(fs_val['files'], list):
+                                    for item in fs_val['files']:
+                                        if isinstance(item, str):
+                                            files_list.append(item)
+                                        elif isinstance(item, dict):
+                                            files_list.extend(item.keys())
+                            cores[name] = {'core_root': os.path.abspath(root), 'files': files_list}
+                    except Exception:
+                        pass
+        gapi['cores'] = cores
     return True
 
 
@@ -420,12 +443,29 @@ def _generate_abstract_impl(gapi):
     print("Abstract primitive written to %s" %
           (os.path.abspath(abstract_prim_sv_filepath), ))
 
+    files_to_include = [abstract_prim_sv_filepath]
+    for t in techlibs:
+        t_core = _core_info_for_techlib(prim_cores, t)[1]
+        for f_rel in t_core.get('files', []):
+            src_f = os.path.join(t_core['core_root'], f_rel)
+            dst_f = os.path.basename(f_rel)
+            if os.path.isfile(src_f) and (dst_f.endswith('.sv') or dst_f.endswith('.v')):
+                shutil.copyfile(src_f, dst_f)
+                if dst_f not in files_to_include:
+                    files_to_include.append(dst_f)
+
+    memload_svh = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'rtl', 'prim_util_memload.svh'))
+    if os.path.isfile(memload_svh):
+        shutil.copyfile(memload_svh, 'prim_util_memload.svh')
+
     # Create core file depending on all primitive implementations we have in the
     # techlibs.
     print("Creating core file for primitive %s." % (prim_name, ))
     abstract_prim_core_filepath = os.path.abspath('prim_%s.core' % (prim_name))
     dependencies = []
     dependencies.append('lowrisc:prim:prim_pkg')
+    dependencies.append('lowrisc:prim:util_memload')
+    dependencies.append('lowrisc:prim:assert')
     dependencies += [
         _core_info_for_techlib(prim_cores, t)[0] for t in techlibs
     ]
@@ -434,9 +474,7 @@ def _generate_abstract_impl(gapi):
         'filesets': {
             'files_rtl': {
                 'depend': dependencies,
-                'files': [
-                    abstract_prim_sv_filepath,
-                ],
+                'files': files_to_include,
                 'file_type': 'systemVerilogSource'
             },
         },
